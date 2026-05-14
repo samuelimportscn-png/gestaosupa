@@ -587,8 +587,14 @@ async function sbFetch(path, opts={}){
   }
 }
 
-async function sbSelect(table, query=''){
-  return sbFetch(`/rest/v1/${table}?${query}&order=created_at.asc`);
+async function sbInsert(table, row){
+  return sbFetch(`/rest/v1/${table}?on_conflict=id`, {
+    method:'POST',
+    headers:{
+      'Prefer':'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(row)
+  });
 }
 async function sbInsert(table, row){
   return sbFetch(`/rest/v1/${table}`, { method:'POST', body: JSON.stringify(row) });
