@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Gilcar Auto Peças</title>
+<!-- OneSignal Push Notifications -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({ appId: "dd85a2cb-1bea-4b0a-af9d-da4a7de0ca23", safari_web_id: "web.onesignal.auto.dd85a2cb-1bea-4b0a-af9d-da4a7de0ca23", notifyButton: { enable: false }, allowLocalhostAsSecureOrigin: true });
+  });
+</script>
 <meta name="theme-color" content="#0e1520">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -227,7 +235,28 @@ canvas{display:block;max-width:100%}
 .filter-input{background:var(--surf3);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-size:13px;padding:8px 10px;outline:none;width:100%}
 .filter-input:focus{border-color:var(--acc)}
 
-/* ── MOBILE ── */
+/* ── CARRINHO ── */
+.cart-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd);background:var(--surf)}
+.cart-item:last-child{border-bottom:none}
+.cart-item-name{flex:1;font-weight:600;font-size:14px;min-width:0}
+.cart-item-name small{display:block;font-size:11px;color:var(--txt3);font-weight:400}
+.cart-qty-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.cart-qty-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--brd);background:var(--surf2);color:var(--txt);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.cart-qty-btn:hover{border-color:var(--acc);color:var(--acc)}
+.cart-qty-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;min-width:24px;text-align:center}
+.cart-item-val{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--acc);flex-shrink:0;min-width:70px;text-align:right}
+.cart-item-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0}
+.cart-item-del:hover{color:var(--red)}
+.cart-total-bar{background:var(--surf2);border-top:2px solid var(--brd);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;bottom:0}
+.cart-total-lbl{font-size:13px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+.cart-total-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--grn)}
+/* ── SCANNER ── */
+#scanner-wrap{position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+#scanner-video{width:100%;display:block;max-height:260px;object-fit:cover}
+.scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scanner-box{width:200px;height:200px;border:3px solid var(--acc);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.scanner-line{position:absolute;width:180px;height:2px;background:var(--acc);animation:scan 2s linear infinite;opacity:.8}
+@keyframes scan{0%{top:calc(50% - 90px)}100%{top:calc(50% + 90px)}}
 @media(max-width:480px){
   .g3{grid-template-columns:1fr 1fr}
   .g2{grid-template-columns:1fr 1fr}
@@ -422,21 +451,98 @@ canvas{display:block;max-width:100%}
 
 </div>
 
-<!-- ── MODAL: SELECIONAR PRODUTO ── -->
-<div class="modal-ov" id="m-products">
-  <div class="modal">
-    <div class="modal-hd"><span class="modal-title">Selecionar Produto</span><button class="modal-x" onclick="closeM('m-products')">✕</button></div>
-    <div class="search-wrap"><input class="search-input" id="prod-search" placeholder="🔍 Buscar produto…" oninput="filterProdList()" autocomplete="off"></div>
-    <div id="m-prod-list" style="max-height:60vh;overflow-y:auto"></div>
+<!-- ── MODAL: CARRINHO (NOVA VENDA) ── -->
+<div class="modal-ov" id="m-cart">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hd">
+      <span class="modal-title">🛒 Nova Venda</span>
+      <button class="modal-x" onclick="closeM('m-cart')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+
+      <!-- Busca + Scanner -->
+      <div style="padding:12px 14px;border-bottom:1px solid var(--brd);background:var(--surf2)">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="search-input" id="cart-search" placeholder="🔍 Buscar produto…" oninput="filterCartList()" autocomplete="off" style="flex:1">
+          <button class="btn btn-out btn-sm" onclick="openScanner()" style="flex-shrink:0;padding:9px 12px" title="Scanner de código de barras">📷</button>
+        </div>
+        <!-- Scanner de câmera -->
+        <div id="scanner-wrap" style="display:none">
+          <video id="scanner-video" autoplay playsinline muted></video>
+          <div class="scanner-overlay">
+            <div class="scanner-box"></div>
+            <div class="scanner-line"></div>
+          </div>
+          <div style="position:absolute;top:8px;right:8px;z-index:10">
+            <button onclick="closeScanner()" style="background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de produtos -->
+      <div id="cart-prod-list" style="max-height:38vh;overflow-y:auto;border-bottom:1px solid var(--brd)"></div>
+
+      <!-- Itens no carrinho -->
+      <div style="padding:10px 14px 4px;background:var(--surf2)">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--txt2);letter-spacing:1.5px;text-transform:uppercase">🧺 Carrinho</div>
+      </div>
+      <div id="cart-items" style="min-height:48px;max-height:28vh;overflow-y:auto">
+        <div class="empty" style="padding:16px;font-size:13px" id="cart-empty-msg">Nenhum produto adicionado</div>
+      </div>
+
+      <!-- Desconto global + vendedor -->
+      <div style="padding:12px 14px;border-top:1px solid var(--brd)">
+        <div class="row" style="margin-bottom:8px">
+          <div class="field" style="margin-bottom:0">
+            <label>Desconto total (R$)</label>
+            <input type="number" id="cart-discount" value="0" min="0" step="0.01" oninput="renderCartTotals()">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Vendedor</label>
+            <input list="cart-vend-list" id="cart-vendedor" placeholder="Nome…" autocomplete="off">
+            <datalist id="cart-vend-list"></datalist>
+          </div>
+        </div>
+        <!-- Totais -->
+        <div id="cart-totals" style="background:var(--surf2);border-radius:var(--r);border:1px solid var(--brd);padding:12px">
+          <div style="color:var(--txt3);font-size:13px;text-align:center">Adicione produtos ao carrinho</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-pri" onclick="finalizeSale()" id="cart-finalizar-btn" disabled style="opacity:.5">✅ Finalizar Venda</button>
+    </div>
   </div>
 </div>
 
-<!-- ── MODAL: FICHA VENDA ── -->
-<div class="modal-ov" id="m-sale">
-  <div class="modal">
-    <div class="modal-hd"><span class="modal-title">Nova Venda</span><button class="modal-x" onclick="closeM('m-sale')">✕</button></div>
-    <div class="modal-body" id="m-sale-body"></div>
-    <div class="modal-foot"><button class="btn btn-pri" onclick="finalizeSale()">✅ Finalizar Venda</button></div>
+<!-- ── MODAL: AJUSTAR ITEM DO CARRINHO ── -->
+<div class="modal-ov" id="m-cart-item">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-hd"><span class="modal-title" id="m-cart-item-title">Ajustar Item</span><button class="modal-x" onclick="closeM('m-cart-item')">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Preço Unit. (R$)</label><input type="number" id="ci-price" step="0.01" min="0" oninput="calcCartItem()"></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="ci-qty" min="1" step="1" oninput="calcCartItem()"></div>
+      <div class="field"><label>Desconto neste item (R$)</label><input type="number" id="ci-disc" value="0" min="0" step="0.01" oninput="calcCartItem()"></div>
+      <div id="ci-preview" class="ph" style="margin-top:4px"></div>
+      <div id="ci-info" style="margin-top:8px;font-size:12px;color:var(--txt3)"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-pri" onclick="saveCartItem()">Confirmar</button></div>
+  </div>
+</div>
+
+<!-- ── MODAL: CUPOM WHATSAPP ── -->
+<div class="modal-ov" id="m-cupom">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd"><span class="modal-title">📋 Cupom da Venda</span><button class="modal-x" onclick="closeM('m-cupom')">✕</button></div>
+    <div class="modal-body">
+      <textarea id="cupom-txt" style="width:100%;background:var(--surf2);border:1px solid var(--brd);border-radius:8px;color:var(--txt);font-family:monospace;font-size:13px;padding:12px;min-height:200px;resize:vertical;outline:none" readonly></textarea>
+    </div>
+    <div class="modal-foot">
+      <div class="row">
+        <button class="btn btn-out btn-sm" onclick="copiarCupom()">📋 Copiar</button>
+        <button class="btn btn-grn btn-sm" onclick="enviarWhatsApp()" style="color:#111">📱 WhatsApp</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -868,117 +974,247 @@ function renderVendas(){
 }
 
 // ════════════════════════════════════════════════════════════
-// NOVA VENDA
+// CARRINHO
 // ════════════════════════════════════════════════════════════
-let curProd=null, curSaleId=null, curProdId=null;
+let curSaleId=null, curProdId=null;
+let CART=[], cartEditIdx=null;
 
 function openNewSale(){
-  filterProdList();
-  document.getElementById('prod-search').value='';
-  filterProdList();
-  openM('m-products');
-  setTimeout(()=>document.getElementById('prod-search').focus(),200);
+  CART=[];
+  document.getElementById('cart-search').value='';
+  document.getElementById('cart-discount').value='0';
+  document.getElementById('cart-vendedor').value='';
+  const vends=[...new Set(DB.sales.map(s=>s.vendedor).filter(v=>v&&v!=='Sem vendedor'))];
+  document.getElementById('cart-vend-list').innerHTML=vends.map(v=>`<option value="${v}">`).join('');
+  filterCartList();
+  renderCart();
+  openM('m-cart');
+  setTimeout(()=>document.getElementById('cart-search').focus(),200);
 }
 
-function filterProdList(){
-  const q=(document.getElementById('prod-search')?.value||'').toLowerCase();
+function filterCartList(){
+  const q=(document.getElementById('cart-search')?.value||'').toLowerCase();
   const list=DB.products.filter(p=>!q||p.name.toLowerCase().includes(q));
-  document.getElementById('m-prod-list').innerHTML=list.length?list.map(p=>{
-    const cls=Number(p.stock)>(Number(p.alert)||2)?'s-ok':Number(p.stock)>0?'s-low':'s-zero';
-    return `<div class="prod-item" onclick="selectProd('${p.id}')">
+  document.getElementById('cart-prod-list').innerHTML=list.length?list.map(p=>{
+    const inCart=CART.find(c=>c.prodId===p.id);
+    const cls=Number(p.stock)>Number(p.alert||2)?'s-ok':Number(p.stock)>0?'s-low':'s-zero';
+    return `<div class="prod-item" onclick="addToCart('${p.id}')">
       <div>
         <div style="font-weight:600">${p.name}${p.categoria?` <span class="tag">${p.categoria}</span>`:''}</div>
-        <div style="font-size:12px;color:var(--txt3)">Venda: ${R(p.price)} · Custo: ${R(ct(p))}</div>
+        <div style="font-size:12px;color:var(--txt3)">${R(p.price)} · Mín: ${R(pmin(p))} · Desc.máx: ${R(Math.max(0,p.price-pmin(p)))}</div>
       </div>
-      <div class="stock-num ${cls}">${p.stock}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${inCart?`<span style="background:rgba(46,111,255,.2);color:var(--acc);border-radius:4px;padding:2px 7px;font-size:12px;font-weight:700">${inCart.qty}x</span>`:''}
+        <div class="stock-num ${cls}">${p.stock}</div>
+      </div>
     </div>`;
-  }).join(''):`<div class="empty">Nenhum produto encontrado</div>`;
+  }).join(''):`<div class="empty" style="padding:20px">Nenhum produto encontrado</div>`;
 }
 
-function selectProd(id){
-  const p=DB.products.find(x=>x.id===id); if(!p)return;
-  curProd=p; closeM('m-products');
-  const min=pmin(p), maxDc=Math.max(0,Number(p.price)-min), m=margReal(p);
-
-  // build unique vendedor list from sales history
-  const vendedores=[...new Set(DB.sales.map(s=>s.vendedor).filter(v=>v&&v!=='Sem vendedor'))];
-  const vOpts=vendedores.map(v=>`<option value="${v}">${v}</option>`).join('');
-
-  document.getElementById('m-sale-body').innerHTML=
-    `<div class="ph">
-      <div class="ph-name">${p.name}</div>
-      <div class="ph-grid">
-        <div><div class="ph-lbl">Estoque</div><div class="ph-val ${Number(p.stock)>0?'c-grn':'c-red'}">${p.stock}</div></div>
-        <div><div class="ph-lbl">Preço atual</div><div class="ph-val c-acc">${R(p.price)}</div></div>
-        <div><div class="ph-lbl">Custo total</div><div class="ph-val">${R(ct(p))}</div></div>
-        <div><div class="ph-lbl">Margem</div><div class="ph-val ${m>=0?'c-grn':'c-red'}">${m.toFixed(1)}%</div></div>
-        <div><div class="ph-lbl">Mín. ${p.margem||60}%</div><div class="ph-val">${R(min)}</div></div>
-        <div><div class="ph-lbl">Desc. máx.</div><div class="ph-val c-red">${R(maxDc)}</div></div>
-      </div>
-    </div>
-    <div class="field"><label>Preço de Venda (R$)</label><input type="number" id="sv-price" value="${Number(p.price).toFixed(2)}" step="0.01" min="0" oninput="calcSale()"></div>
-    <div class="row">
-      <div class="field"><label>Quantidade</label><input type="number" id="sv-qty" value="1" min="1" step="1" oninput="calcSale()"></div>
-      <div class="field"><label>Desconto (R$)</label><input type="number" id="sv-disc" value="0" min="0" step="0.01" oninput="calcSale()"></div>
-    </div>
-    <div class="field">
-      <label>Vendedor</label>
-      <input list="vend-list" id="sv-vend" placeholder="Nome do vendedor" autocomplete="off">
-      <datalist id="vend-list">${vOpts}</datalist>
-    </div>
-    <div id="sv-preview" class="ph" style="margin-top:4px"></div>`;
-
-  calcSale();
-  openM('m-sale');
+function addToCart(prodId){
+  const p=DB.products.find(x=>x.id===prodId);
+  if(!p){toast('Produto não encontrado','err');return;}
+  const idx=CART.findIndex(c=>c.prodId===prodId);
+  if(idx>=0){openCartItemModal(idx);return;}
+  CART.push({prodId:p.id,name:p.name,price:Number(p.price),qty:1,discount:0,cost:ct(p),stock:Number(p.stock),margem:Number(p.margem||60),alert:Number(p.alert||2)});
+  filterCartList();renderCart();
+  toast(p.name+' adicionado ✓');
 }
 
-function calcSale(){
-  if(!curProd) return;
-  const price=parseFloat(document.getElementById('sv-price')?.value)||0;
-  const qty=parseInt(document.getElementById('sv-qty')?.value)||1;
-  const disc=parseFloat(document.getElementById('sv-disc')?.value)||0;
-  const total=(price*qty)-disc, lucro=((price-ct(curProd))*qty)-disc;
-  document.getElementById('sv-preview').innerHTML=
+function openCartItemModal(idx){
+  cartEditIdx=idx;
+  const item=CART[idx];
+  document.getElementById('m-cart-item-title').textContent=item.name;
+  document.getElementById('ci-price').value=item.price.toFixed(2);
+  document.getElementById('ci-qty').value=item.qty;
+  document.getElementById('ci-disc').value=item.discount.toFixed(2);
+  const min=item.cost*(1+item.margem/100);
+  document.getElementById('ci-info').innerHTML=
+    `Custo: ${R(item.cost)} · Mín(${item.margem}%): ${R(min)} · Desc.máx: <span style="color:var(--red)">${R(Math.max(0,item.price-min))}</span> · Estoque: <span style="color:${item.stock>0?'var(--grn)':'var(--red)'}">${item.stock}</span>`;
+  calcCartItem();openM('m-cart-item');
+}
+
+function calcCartItem(){
+  if(cartEditIdx===null)return;
+  const price=parseFloat(document.getElementById('ci-price').value)||0;
+  const qty=parseInt(document.getElementById('ci-qty').value)||1;
+  const disc=parseFloat(document.getElementById('ci-disc').value)||0;
+  const cost=CART[cartEditIdx]?.cost||0;
+  const total=(price*qty)-disc, lucro=((price-cost)*qty)-disc;
+  document.getElementById('ci-preview').innerHTML=
     `<div class="ph-grid">
-      <div><div class="ph-lbl">Total da Venda</div><div class="ph-val c-acc">${R(total)}</div></div>
-      <div><div class="ph-lbl">Lucro</div><div class="ph-val ${lucro>=0?'c-grn':'c-red'}">${R(lucro)}</div></div>
+      <div><div class="ph-lbl">Total item</div><div class="ph-val c-acc">${R(total)}</div></div>
+      <div><div class="ph-lbl">Lucro item</div><div class="ph-val ${lucro>=0?'c-grn':'c-red'}">${R(lucro)}</div></div>
     </div>`;
+}
+
+function saveCartItem(){
+  if(cartEditIdx===null)return;
+  const price=parseFloat(document.getElementById('ci-price').value)||0;
+  const qty=parseInt(document.getElementById('ci-qty').value)||1;
+  const disc=parseFloat(document.getElementById('ci-disc').value)||0;
+  if(qty>CART[cartEditIdx].stock){toast('Estoque insuficiente!','err');return;}
+  CART[cartEditIdx].price=price;CART[cartEditIdx].qty=qty;CART[cartEditIdx].discount=disc;
+  cartEditIdx=null;closeM('m-cart-item');filterCartList();renderCart();
+}
+
+function removeFromCart(idx){CART.splice(idx,1);filterCartList();renderCart();}
+
+function changeQty(idx,delta){
+  const item=CART[idx];
+  const nq=item.qty+delta;
+  if(nq<1)return;
+  if(nq>item.stock){toast('Estoque insuficiente!','err');return;}
+  item.qty=nq;renderCart();
+}
+
+function renderCart(){
+  const cartEl=document.getElementById('cart-items');
+  const btn=document.getElementById('cart-finalizar-btn');
+  if(!CART.length){
+    cartEl.innerHTML=`<div class="empty" style="padding:16px;font-size:13px">Nenhum produto adicionado</div>`;
+    btn.disabled=true;btn.style.opacity='.5';
+    document.getElementById('cart-totals').innerHTML=`<div style="color:var(--txt3);font-size:13px;text-align:center">Adicione produtos ao carrinho</div>`;
+    return;
+  }
+  btn.disabled=false;btn.style.opacity='1';
+  cartEl.innerHTML=CART.map((item,i)=>{
+    const sub=(item.price*item.qty)-item.discount;
+    const luc=((item.price-item.cost)*item.qty)-item.discount;
+    return `<div class="cart-item">
+      <div class="cart-item-name">${item.name}
+        <small>${R(item.price)}/un.${item.discount>0?` · -${R(item.discount)}`:''} · <span style="color:${luc>=0?'var(--grn)':'var(--red)'}">${R(luc)} lucro</span></small>
+      </div>
+      <div class="cart-qty-wrap">
+        <button class="cart-qty-btn" onclick="changeQty(${i},-1)">−</button>
+        <div class="cart-qty-num">${item.qty}</div>
+        <button class="cart-qty-btn" onclick="changeQty(${i},1)">+</button>
+      </div>
+      <div class="cart-item-val">${R(sub)}</div>
+      <button class="cart-item-del" onclick="openCartItemModal(${i})" title="Editar">✏️</button>
+      <button class="cart-item-del" onclick="removeFromCart(${i})">🗑</button>
+    </div>`;
+  }).join('');
+  renderCartTotals();
+}
+
+function renderCartTotals(){
+  if(!CART.length)return;
+  const gDisc=parseFloat(document.getElementById('cart-discount')?.value)||0;
+  let sub=0,luc=0;
+  CART.forEach(item=>{sub+=(item.price*item.qty)-item.discount;luc+=((item.price-item.cost)*item.qty)-item.discount;});
+  const total=sub-gDisc,lucro=luc-gDisc;
+  const itens=CART.reduce((a,c)=>a+c.qty,0);
+  document.getElementById('cart-totals').innerHTML=
+    `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">
+      <div><div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px">Itens</div>
+           <div style="font-family:'Barlow Condensed';font-size:22px;font-weight:700">${itens}</div></div>
+      <div><div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px">Total</div>
+           <div style="font-family:'Barlow Condensed';font-size:22px;font-weight:700;color:var(--acc)">${R(total)}</div></div>
+      <div><div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px">Lucro</div>
+           <div style="font-family:'Barlow Condensed';font-size:22px;font-weight:700;color:${lucro>=0?'var(--grn)':'var(--red)'}">${R(lucro)}</div></div>
+    </div>
+    ${gDisc>0?`<div style="font-size:11px;color:var(--txt3);text-align:right">Desconto global: -${R(gDisc)}</div>`:''}`;
 }
 
 async function finalizeSale(){
-  if(!curProd){ toast('Nenhum produto selecionado','err'); return; }
-  const price=parseFloat(document.getElementById('sv-price').value)||0;
-  const qty=parseInt(document.getElementById('sv-qty').value)||1;
-  const disc=parseFloat(document.getElementById('sv-disc').value)||0;
-  const vendedor=(document.getElementById('sv-vend').value||'Sem vendedor').trim();
-
-  if(qty<=0){ toast('Quantidade inválida','err'); return; }
-  if(Number(curProd.stock)<qty){ toast('Estoque insuficiente!','err'); return; }
-
-  const total=(price*qty)-disc, lucro=((price-ct(curProd))*qty)-disc;
-
-  try {
-    await sbInsert('sales',{
-      id:uid(), product_id:curProd.id, product_name:curProd.name,
-      vendedor, price, qty, discount:disc, total, lucro,
-      cost:ct(curProd), date:new Date().toISOString()
-    });
-    await sbUpdate('products', curProd.id, { stock: Number(curProd.stock)-qty });
-
-    // notificação de venda
-    const novoStock = Number(curProd.stock) - qty;
-    notifyVenda(curProd.name, total, vendedor);
-    if(novoStock <= Number(curProd.alert||2) && novoStock >= 0){
-      notifyEstoqueBaixo(curProd.name, novoStock);
+  if(!CART.length){toast('Carrinho vazio','err');return;}
+  const gDisc=parseFloat(document.getElementById('cart-discount')?.value)||0;
+  const vendedor=(document.getElementById('cart-vendedor')?.value||'Sem vendedor').trim();
+  let sub=0;
+  CART.forEach(item=>sub+=(item.price*item.qty)-item.discount);
+  const now=new Date().toISOString();
+  try{
+    let totV=0,totL=0;
+    for(const item of CART){
+      const iSub=(item.price*item.qty)-item.discount;
+      const iDisc=item.discount+(sub>0?gDisc*(iSub/sub):0);
+      const total=parseFloat(((item.price*item.qty)-iDisc).toFixed(2));
+      const lucro=parseFloat((((item.price-item.cost)*item.qty)-iDisc).toFixed(2));
+      totV+=total;totL+=lucro;
+      await sbInsert('sales',{id:uid(),product_id:item.prodId,product_name:item.name,vendedor,price:item.price,qty:item.qty,discount:parseFloat(iDisc.toFixed(4)),total,lucro,cost:item.cost,date:now});
+      await sbUpdate('products',item.prodId,{stock:item.stock-item.qty});
+      const ns=item.stock-item.qty;
+      if(ns<=item.alert)notifyEstoqueBaixo(item.name,ns);
     }
-
-    curProd=null;
-    closeM('m-sale');
+    notifyVenda(CART.length===1?CART[0].name:`${CART.length} produtos`,totV,vendedor);
+    const cartSnapshot=[...CART];
+    CART=[];
+    closeM('m-cart');
     await syncAll();
     toast('Venda registrada! ✓');
-  } catch(e){ toast('Erro ao salvar venda','err'); }
+    gerarCupom(cartSnapshot,gDisc,vendedor,totV,totL,now);
+    openM('m-cupom');
+  }catch(e){toast('Erro ao salvar: '+e.message,'err');console.error(e);}
 }
 
+// ════════════════════════════════════════════════════════════
+// CUPOM WHATSAPP
+// ════════════════════════════════════════════════════════════
+function gerarCupom(items,gDisc,vendedor,total,lucro,dateISO){
+  const data=new Date(dateISO).toLocaleString('pt-BR');
+  let txt=`🔧 *GILCAR AUTO PEÇAS*\n`;
+  txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
+  txt+=`📅 ${data}\n`;
+  if(vendedor&&vendedor!=='Sem vendedor')txt+=`👤 ${vendedor}\n`;
+  txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
+  items.forEach(item=>{
+    txt+=`▸ ${item.name}\n`;
+    txt+=`  ${item.qty}x ${R(item.price)}`;
+    if(item.discount>0)txt+=` (-${R(item.discount)})`;
+    txt+=` = *${R((item.price*item.qty)-item.discount)}*\n`;
+  });
+  txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
+  if(gDisc>0)txt+=`🏷 Desconto: -${R(gDisc)}\n`;
+  txt+=`💰 *TOTAL: ${R(total)}*\n`;
+  txt+=`━━━━━━━━━━━━━━━━━━━━\n`;
+  txt+=`Obrigado pela preferência! 🚗`;
+  document.getElementById('cupom-txt').value=txt;
+}
+function copiarCupom(){
+  const txt=document.getElementById('cupom-txt').value;
+  navigator.clipboard.writeText(txt).then(()=>toast('Copiado ✓')).catch(()=>{document.getElementById('cupom-txt').select();document.execCommand('copy');toast('Copiado ✓');});
+}
+function enviarWhatsApp(){
+  window.open(`https://wa.me/?text=${encodeURIComponent(document.getElementById('cupom-txt').value)}`,'_blank');
+}
+
+// ════════════════════════════════════════════════════════════
+// SCANNER DE CÓDIGO DE BARRAS
+// ════════════════════════════════════════════════════════════
+let scannerStream=null,scannerInterval=null;
+async function openScanner(){
+  try{
+    const wrap=document.getElementById('scanner-wrap');
+    const video=document.getElementById('scanner-video');
+    wrap.style.display='block';
+    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject=scannerStream;await video.play();
+    if('BarcodeDetector' in window){
+      const det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e']});
+      scannerInterval=setInterval(async()=>{
+        try{const bc=await det.detect(video);if(bc.length){closeScanner();handleBarcode(bc[0].rawValue);}}catch(e){}
+      },300);
+    }else{
+      closeScanner();
+      const code=prompt('Digite o código de barras:');
+      if(code)handleBarcode(code.trim());
+    }
+  }catch(e){toast('Câmera não disponível','err');closeScanner();}
+}
+function closeScanner(){
+  if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
+  if(scannerInterval){clearInterval(scannerInterval);scannerInterval=null;}
+  const w=document.getElementById('scanner-wrap');if(w)w.style.display='none';
+}
+function handleBarcode(code){
+  const p=DB.products.find(x=>(x.obs||'').includes(code)||x.name.toLowerCase().includes(code.toLowerCase()));
+  if(p){toast('Produto: '+p.name);addToCart(p.id);}
+  else{toast('Código não encontrado: '+code,'err');document.getElementById('cart-search').value=code;filterCartList();}
+}
+
+// ════════════════════════════════════════════════════════════
+// SALE DETAIL
 // ════════════════════════════════════════════════════════════
 // SALE DETAIL
 // ════════════════════════════════════════════════════════════
@@ -1508,63 +1744,57 @@ async function migrateLocalStorage(){
 }
 
 // ════════════════════════════════════════════════════════════
-// NOTIFICAÇÕES PUSH
+// NOTIFICAÇÕES — OneSignal
 // ════════════════════════════════════════════════════════════
-
-// Pede permissão e salva estado
 async function pedirPermissaoNotificacao(){
-  if(!('Notification' in window)){
-    toast('Seu navegador não suporta notificações','err'); return;
+  if(typeof OneSignalDeferred === 'undefined'){
+    toast('OneSignal não carregado ainda. Tente novamente.','err'); return;
   }
-  const perm = await Notification.requestPermission();
-  if(perm === 'granted'){
-    localStorage.setItem('gilcar_notif','on');
-    atualizarBotaoNotif();
-    toast('Notificações ativadas! ✓');
-    // notificação de teste
-    new Notification('Gilcar Auto Peças 🛒', {
-      body: 'Notificações ativadas com sucesso!',
-      icon: 'https://fav.farm/🔧'
-    });
-  } else {
-    localStorage.setItem('gilcar_notif','off');
-    atualizarBotaoNotif();
-    toast('Permissão negada. Ative nas configurações do navegador.','err');
-  }
+  OneSignalDeferred.push(async function(OneSignal){
+    try {
+      await OneSignal.Notifications.requestPermission();
+      const granted = OneSignal.Notifications.permission;
+      if(granted){
+        localStorage.setItem('gilcar_notif','on');
+        atualizarBotaoNotif();
+        toast('Notificações ativadas! ✓');
+      } else {
+        toast('Permissão negada. Ative nas configurações do celular.','err');
+      }
+    } catch(e){ toast('Erro ao ativar notificações','err'); console.error(e); }
+  });
 }
 
 function notificacoesAtivas(){
-  return Notification.permission === 'granted' && localStorage.getItem('gilcar_notif') === 'on';
+  return localStorage.getItem('gilcar_notif')==='on';
 }
 
 function atualizarBotaoNotif(){
-  const btn = document.getElementById('notif-btn');
-  if(!btn) return;
-  const on = notificacoesAtivas();
-  btn.textContent = on ? '🔔 Notificações ON' : '🔕 Ativar Notificações';
-  btn.style.borderColor = on ? 'var(--grn)' : 'var(--brd)';
-  btn.style.color = on ? 'var(--grn)' : 'var(--txt2)';
+  const btn=document.getElementById('notif-btn'); if(!btn)return;
+  const on=notificacoesAtivas();
+  btn.innerHTML=`<span class="ic">${on?'🔔':'🔕'}</span>${on?'Notificações ON':'Ativar Notificações'}`;
+  btn.style.borderLeft=on?'3px solid var(--grn)':'3px solid transparent';
+  btn.style.color=on?'var(--grn)':'var(--txt2)';
 }
 
 function notifyVenda(produto, total, vendedor){
-  if(!notificacoesAtivas()) return;
-  const vend = vendedor && vendedor !== 'Sem vendedor' ? ` · ${vendedor}` : '';
-  new Notification('💰 Venda registrada!', {
-    body: `${produto}\n${R(total)}${vend}`,
-    icon: 'https://fav.farm/🛒',
-    badge: 'https://fav.farm/🔧',
-    tag: 'venda-nova',           // agrupa — não empilha múltiplas
-    renotify: true,
-  });
+  // Notificação local (funciona com app aberto)
+  if('Notification' in window && Notification.permission==='granted'){
+    const vend=vendedor&&vendedor!=='Sem vendedor'?` · ${vendedor}`:'';
+    new Notification('💰 Venda registrada!',{
+      body:`${produto}\n${R(total)}${vend}`,
+      icon:'https://fav.farm/🛒',tag:'venda',renotify:true
+    });
+  }
 }
 
 function notifyEstoqueBaixo(produto, qtd){
-  if(!notificacoesAtivas()) return;
-  new Notification('⚠️ Estoque baixo!', {
-    body: `${produto} — apenas ${qtd} unidade(s) restante(s)`,
-    icon: 'https://fav.farm/📦',
-    tag: 'estoque-baixo-'+produto,
-  });
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification('⚠️ Estoque baixo!',{
+      body:`${produto} — ${qtd} un. restante(s)`,
+      icon:'https://fav.farm/📦',tag:'estoque-'+produto
+    });
+  }
 }
 
 // ════════════════════════════════════════════════════════════
