@@ -1117,16 +1117,23 @@ function renderCartTotals(){
     ${gDisc>0?`<div style="font-size:11px;color:var(--txt3);text-align:right">Desconto global: -${R(gDisc)}</div>`:''}`;
 }
 
+let _finalizando=false;
 async function finalizeSale(){
   if(!CART.length){toast('Carrinho vazio','err');return;}
+  if(_finalizando){toast('Aguarde, processando…','err');return;}
+  _finalizando=true;
+  const btn=document.getElementById('cart-finalizar-btn');
+  if(btn){btn.disabled=true;btn.style.opacity='.5';btn.textContent='⏳ Salvando…';}
   const gDisc=parseFloat(document.getElementById('cart-discount')?.value)||0;
   const vendedor=(document.getElementById('cart-vendedor')?.value||'Sem vendedor').trim();
   let sub=0;
   CART.forEach(item=>sub+=(item.price*item.qty)-item.discount);
   const now=new Date().toISOString();
+  const cartSnapshot=[...CART];
+  CART=[];
   try{
     let totV=0,totL=0;
-    for(const item of CART){
+    for(const item of cartSnapshot){
       const iSub=(item.price*item.qty)-item.discount;
       const iDisc=item.discount+(sub>0?gDisc*(iSub/sub):0);
       const total=parseFloat(((item.price*item.qty)-iDisc).toFixed(2));
@@ -1137,15 +1144,20 @@ async function finalizeSale(){
       const ns=item.stock-item.qty;
       if(ns<=item.alert)notifyEstoqueBaixo(item.name,ns);
     }
-    notifyVenda(CART.length===1?CART[0].name:`${CART.length} produtos`,totV,vendedor);
-    const cartSnapshot=[...CART];
-    CART=[];
+    notifyVenda(cartSnapshot.length===1?cartSnapshot[0].name:`${cartSnapshot.length} produtos`,totV,vendedor);
     closeM('m-cart');
     await syncAll();
     toast('Venda registrada! ✓');
     gerarCupom(cartSnapshot,gDisc,vendedor,totV,totL,now);
     openM('m-cupom');
-  }catch(e){toast('Erro ao salvar: '+e.message,'err');console.error(e);}
+  }catch(e){
+    CART=[...cartSnapshot];
+    toast('Erro ao salvar: '+e.message,'err');
+    console.error(e);
+    if(btn){btn.disabled=false;btn.style.opacity='1';btn.textContent='✅ Finalizar Venda';}
+  }finally{
+    _finalizando=false;
+  }
 }
 
 // ════════════════════════════════════════════════════════════
