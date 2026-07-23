@@ -925,19 +925,18 @@ function doLogin(){
     localStorage.setItem(SESSION_KEY,'ok');
     document.getElementById('login-screen').classList.add('hidden');
     bootstrap();
-    logDevEvent('🔑 Login realizado');
+    logDevEvent('🔑 Login realizado'); // fire-and-forget, não bloqueia
   } else {
     document.getElementById('login-err').style.display='block';
     document.getElementById('pw-input').value='';
     document.getElementById('pw-input').focus();
-    logDevEvent('⛔ Tentativa de login inválida');
+    logDevEvent('⛔ Tentativa inválida');
   }
 }
 function doLogout(){
-  logDevEvent('🚪 Logout').finally(()=>{
-    localStorage.removeItem(SESSION_KEY);
-    location.reload();
-  });
+  localStorage.removeItem(SESSION_KEY);
+  logDevEvent('🚪 Logout');
+  location.reload();
 }
 function checkSession(){
   return localStorage.getItem(SESSION_KEY)==='ok';
@@ -2049,10 +2048,12 @@ function getDeviceInfo(){
 
 async function getClientIP(){
   try{
-    const r = await fetch('https://api.ipify.org?format=json');
-    const d = await r.json();
-    return d.ip || '—';
-  }catch{ return 'IP indisponível'; }
+    const ctrl=new AbortController();
+    setTimeout(()=>ctrl.abort(),2000); // 2s timeout
+    const r=await fetch('https://api.ipify.org?format=json',{signal:ctrl.signal});
+    const d=await r.json();
+    return d.ip||'—';
+  }catch{return '—';}
 }
 
 async function logDevEvent(action, extra={}){
