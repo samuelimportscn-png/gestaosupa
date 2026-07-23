@@ -23,7 +23,7 @@
   --grn:#10b981;--red:#f43f5e;--blu:#60a5fa;--yel:#f59e0b;--pur:#8b5cf6;--org:#f97316;--cyan:#06b6d4;
   --grn-glow:rgba(16,185,129,.12);--red-glow:rgba(244,63,94,.12);
   --txt:#eaf0fc;--txt2:#637b9c;--txt3:#243550;
-  --r:14px;--r2:10px;--sw:285px;--hh:60px;
+  --r:12px;--r2:8px;--sw:240px;--hh:60px;
   --sh:0 8px 32px rgba(0,0,0,.5);
   --sh2:0 2px 16px rgba(0,0,0,.4);
   --sh3:0 1px 4px rgba(0,0,0,.3);
@@ -33,6 +33,18 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow-x:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── DESKTOP LAYOUT ── */
+@media(min-width:769px){
+  #sidebar{position:fixed;top:0;left:0;height:100vh;transform:none!important;z-index:50;width:var(--sw);border-right:1px solid var(--brd);background:var(--surf);display:flex;flex-direction:column}
+  #ov{display:none!important}
+  #header{left:var(--sw)}
+  #main{margin-left:var(--sw);padding-bottom:16px}
+  #bottom-nav{left:var(--sw)}
+  #menu-btn{display:none}
+}
+  --glass2:rgba(255,255,255,.05);
+}
 
 /* ── LOGIN ── */
 #login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden}
@@ -313,7 +325,7 @@ canvas{display:block;max-width:100%}
 </div>
 
 <!-- LOADING -->
-<div id="loading">
+<div id="loading" class="hidden">
   <div class="spinner"></div>
   <div class="load-txt" id="load-txt">Carregando dados…</div>
 </div>
@@ -1035,7 +1047,7 @@ function margReal(p){ const c=ct(p); if(!c||!p.price) return 0; return (Number(p
 // LOAD ALL DATA
 // ════════════════════════════════════════════════════════════
 async function syncAll(){
-  document.getElementById('load-txt').textContent='Carregando dados…';
+  setSyncDot('busy');
   try {
     const [prods, sales, ri, ret, pe, notas, metaR] = await Promise.all([
       sbSelect('products'),
@@ -1053,12 +1065,17 @@ async function syncAll(){
     DB.perdas   = pe      || [];
     DB.notas    = notas   || [];
     DB.meta     = metaR && metaR.length ? Number(metaR[0].value||0) : 0;
+    setSyncDot('ok');
     render();
-    toast('Dados sincronizados ✓');
   } catch(e){
-    toast('Erro ao carregar dados — verifique a conexão','err');
+    setSyncDot('err');
+    console.error('syncAll:', e);
+    render();
+    toast('Sem conexão — exibindo dados locais','err');
   }
 }
+
+function setSyncDot(s){const d=document.getElementById('sync-dot');if(d){d.className='';d.classList.add(s);}}
 
 // ════════════════════════════════════════════════════════════
 // NAVIGATION
@@ -2148,8 +2165,6 @@ function renderDevPanel(){
   }).join('');
 }
 
-
-
 // ════════════════════════════════════════════════════════════
 // ENTRADAS DE MERCADORIA
 // ════════════════════════════════════════════════════════════
@@ -2179,17 +2194,19 @@ let _devTaps=0,_devTimer=null;
 function devSecretTap(){_devTaps++;clearTimeout(_devTimer);_devTimer=setTimeout(()=>_devTaps=0,2500);if(_devTaps>=5){_devTaps=0;closeSB();goTab('devpanel');toast('Painel Dev');}}
 
 async function bootstrap(){
-  document.getElementById('loading').classList.remove('hidden');
+  const loadEl = document.getElementById('loading');
+  const loginEl = document.getElementById('login-screen');
+  loginEl.classList.add('hidden');
+  loadEl.classList.remove('hidden');
   try {
-    // 1. migrate old localStorage data (runs once automatically)
     await migrateLocalStorage();
-    // 2. load from supabase
     await syncAll();
   } catch(e){
-    toast('Erro ao inicializar. Verifique a conexão.','err');
-    console.error(e);
+    console.error('bootstrap error:', e);
+    toast('Erro ao conectar. Usando dados locais.','err');
+    render();
   } finally {
-    document.getElementById('loading').classList.add('hidden');
+    loadEl.classList.add('hidden');
   }
 }
 
