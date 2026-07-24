@@ -2414,7 +2414,7 @@ async function salvarNovoProduto(){
   const cat=(document.getElementById('np-cat')?.value||'').trim();
   if(!name){toast('Informe o nome do produto','err');return;}
   if(price<=0){toast('Informe o preço de venda','err');return;}
-  const produto={id:uid(),name,price,cost,stock,alert,category:cat,created_at:new Date().toISOString()};
+  const produto={id:uid(),name,price,cost,stock,alert,categoria:cat};
   try{
     await sbInsert('products',produto);
     await syncAll();
@@ -2445,7 +2445,7 @@ function renderNovoProduto(){
       <div class="li-top">
         <div>
           <div class="li-name">${p.name}</div>
-          <div class="li-meta">${p.category||'—'} · Estoque: ${p.stock||0} un.</div>
+          <div class="li-meta">${p.categoria||'—'} · Estoque: ${p.stock||0} un.</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div class="li-val">${R(p.price)}</div>
