@@ -1160,6 +1160,8 @@ function render(){
   renderVendas();
   renderEstoque();
   renderMovimentacao();
+  populateEntProdSelect();
+  populateSaiProdSelect();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2214,7 +2216,7 @@ function populateEntProdSelect(){
   if(!sel)return;
   const cur=sel.value;
   sel.innerHTML='<option value="">Selecione um produto…</option>';
-  PRODUCTS.forEach(p=>{
+  DB.products.forEach(p=>{
     const o=document.createElement('option');
     o.value=p.id;
     o.textContent=`${p.name} (${p.stock||0} un.)`;
@@ -2226,7 +2228,7 @@ function populateEntProdSelect(){
 function entFillCusto(){
   const id=document.getElementById('ent-prod')?.value;
   if(!id)return;
-  const prod=PRODUCTS.find(p=>p.id===id);
+  const prod=DB.products.find(p=>p.id===id);
   if(prod&&prod.cost){
     const el=document.getElementById('ent-custo');
     if(el&&!el.value) el.value=prod.cost;
@@ -2240,7 +2242,7 @@ function entAddToCart(){
   if(!prodId){toast('Selecione um produto','err');return;}
   if(qty<=0){toast('Informe a quantidade','err');return;}
   if(custo<0){toast('Custo inválido','err');return;}
-  const prod=PRODUCTS.find(p=>p.id===prodId);
+  const prod=DB.products.find(p=>p.id===prodId);
   if(!prod)return;
   // Se já está no carrinho, soma a quantidade
   const existing=ENT_CART.find(i=>i.prodId===prodId);
@@ -2437,7 +2439,7 @@ function renderNovoProduto(){
   });
   const el=document.getElementById('np-recent-list');
   if(!el)return;
-  const recentes=[...PRODUCTS].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,8);
+  const recentes=[...DB.products].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,8);
   if(!recentes.length){el.innerHTML='<div class="empty">Nenhum produto cadastrado ainda</div>';return;}
   el.innerHTML=recentes.map(p=>`
     <div class="list-item">
@@ -2461,9 +2463,9 @@ function renderNovoProduto(){
 const SAI_KEY='gilcar_saidas';
 let SAI_PERIOD='todas';
 function getSaidas(){return JSON.parse(localStorage.getItem(SAI_KEY)||'[]');}
-function populateSaiProdSelect(){const sel=document.getElementById('sai-prod');if(!sel)return;sel.innerHTML='<option value="">Selecione um produto…</option>';PRODUCTS.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name+` (${p.stock||0} un.)`;sel.appendChild(o);});}
+function populateSaiProdSelect(){const sel=document.getElementById('sai-prod');if(!sel)return;sel.innerHTML='<option value="">Selecione um produto…</option>';DB.products.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name+` (${p.stock||0} un.)`;sel.appendChild(o);});}
 function calcSaida(){const q=parseFloat(document.getElementById('sai-qty')?.value)||0,v=parseFloat(document.getElementById('sai-val')?.value)||0,p=document.getElementById('sai-preview'),pv=document.getElementById('sai-preview-val');if(q>0&&v>0&&p&&pv){p.style.display='block';pv.textContent=R(q*v);}else if(p)p.style.display='none';}
-async function registrarSaida(){const prodId=document.getElementById('sai-prod')?.value,qty=parseInt(document.getElementById('sai-qty')?.value)||0,val=parseFloat(document.getElementById('sai-val')?.value)||0,motivo=document.getElementById('sai-motivo')?.value||'Outro',obs=(document.getElementById('sai-obs')?.value||'').trim();if(!prodId){toast('Selecione um produto','err');return;}if(qty<=0){toast('Informe a quantidade','err');return;}const prod=PRODUCTS.find(p=>p.id===prodId);if(!prod)return;if((prod.stock||0)<qty){toast(`Estoque insuficiente (${prod.stock||0} un.)`,'err');return;}const total=qty*val,saida={id:uid(),prodId,prodNome:prod.name,qty,val,total,motivo,obs,date:new Date().toISOString()},list=getSaidas();list.unshift(saida);localStorage.setItem(SAI_KEY,JSON.stringify(list));try{await sbUpdate('products',prodId,{stock:(prod.stock||0)-qty});await syncAll();logDevEvent('📤 Saída',{produto:prod.name,valor:R(total)});toast(`Saída de ${qty} un. registrada ✓`);['sai-prod','sai-qty','sai-val','sai-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('sai-preview').style.display='none';renderSaidas();}catch(e){toast('Erro: '+e.message,'err');}}
+async function registrarSaida(){const prodId=document.getElementById('sai-prod')?.value,qty=parseInt(document.getElementById('sai-qty')?.value)||0,val=parseFloat(document.getElementById('sai-val')?.value)||0,motivo=document.getElementById('sai-motivo')?.value||'Outro',obs=(document.getElementById('sai-obs')?.value||'').trim();if(!prodId){toast('Selecione um produto','err');return;}if(qty<=0){toast('Informe a quantidade','err');return;}const prod=DB.products.find(p=>p.id===prodId);if(!prod)return;if((prod.stock||0)<qty){toast(`Estoque insuficiente (${prod.stock||0} un.)`,'err');return;}const total=qty*val,saida={id:uid(),prodId,prodNome:prod.name,qty,val,total,motivo,obs,date:new Date().toISOString()},list=getSaidas();list.unshift(saida);localStorage.setItem(SAI_KEY,JSON.stringify(list));try{await sbUpdate('products',prodId,{stock:(prod.stock||0)-qty});await syncAll();logDevEvent('📤 Saída',{produto:prod.name,valor:R(total)});toast(`Saída de ${qty} un. registrada ✓`);['sai-prod','sai-qty','sai-val','sai-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('sai-preview').style.display='none';renderSaidas();}catch(e){toast('Erro: '+e.message,'err');}}
 function setSaiPeriod(p){SAI_PERIOD=p;['todas','hoje','semana','mes'].forEach(x=>document.getElementById('spp-'+x)?.classList.toggle('act',x===p));renderSaidas();}
 function renderSaidas(){populateSaiProdSelect();const list=getSaidas(),now=new Date();let f=list.filter(e=>{const d=new Date(e.date);if(SAI_PERIOD==='hoje')return d.toDateString()===now.toDateString();if(SAI_PERIOD==='semana')return(now-d)/864e5<=7;if(SAI_PERIOD==='mes')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();return true;});const tQ=f.reduce((s,e)=>s+e.qty,0),tV=f.reduce((s,e)=>s+(e.total||0),0);document.getElementById('sai-metrics').innerHTML=`<div class="met"><div class="met-lbl">Saídas</div><div class="met-val c-red">${f.length}</div></div><div class="met"><div class="met-lbl">Unidades</div><div class="met-val c-yel">${tQ}</div></div><div class="met"><div class="met-lbl">Valor</div><div class="met-val c-red">${R(tV)}</div></div><div class="met"><div class="met-lbl">Motivos</div><div class="met-val">${[...new Set(f.map(e=>e.motivo))].length||0}</div></div>`;document.getElementById('sai-count').textContent=`${f.length} registros`;const el=document.getElementById('sai-list');if(!f.length){el.innerHTML='<div class="empty">Nenhuma saída registrada</div>';return;}el.innerHTML=f.map(e=>{const d=new Date(e.date);return`<div class="list-item"><div class="li-top"><div><div class="li-name">${e.prodNome} <span class="badge badge-red" style="font-size:9px;margin-left:4px">${e.motivo}</span></div><div class="li-meta">${e.qty} un.${e.val?` × ${R(e.val)}`:''}${e.obs?' · '+e.obs:''}</div></div><div style="text-align:right;flex-shrink:0"><div class="li-val" style="color:var(--red)">${R(e.total||0)}</div><div class="li-meta">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div></div></div></div>`;}).join('');}
 
