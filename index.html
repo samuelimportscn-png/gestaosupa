@@ -280,12 +280,13 @@ canvas{display:block;max-width:100%}
 .filter-bar-inner{display:flex;align-items:center;gap:8px}
 
 /* ── BOTTOM NAV ── */
-#bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(11,17,32,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--brd);display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom))}
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(11,17,32,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--brd);display:flex;padding:6px 0 max(10px,env(safe-area-inset-bottom))}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;cursor:pointer;transition:.15s;border:none;background:none;color:var(--txt3)}
 .bn-item.act{color:var(--acc)}
-.bn-item svg{width:22px;height:22px;stroke-width:1.8}
+.bn-item svg{width:21px;height:21px;stroke-width:1.8}
 .bn-item span{font-size:10px;font-weight:600;letter-spacing:.2px}
-#main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+#main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+@media(min-width:769px){#main{padding-bottom:24px}}
 
 /* ── REMOVE OLD SIDEBAR NAV WHEN BOTTOM NAV VISIBLE ── */
 @media(max-width:768px){.sb-nav .ni{padding:12px 14px}}
@@ -370,7 +371,7 @@ canvas{display:block;max-width:100%}
     <button class="logout-btn" onclick="doLogout()">← Sair do Sistema</button>
     <!-- secret dev access: tap 5x on version label -->
     <div id="dev-secret-tap" onclick="devSecretTap()" style="text-align:center;padding:8px 0 0;cursor:default;user-select:none">
-      <span style="font-size:10px;color:var(--txt3);letter-spacing:.5px">v2.0</span>
+      <span style="font-size:10px;color:var(--txt3);letter-spacing:.5px">v2.1</span>
     </div>
   </div>
 </div>
@@ -1901,24 +1902,61 @@ async function delEntry(table,id){
 // ════════════════════════════════════════════════════════════
 function renderDashboard(){
   const {sales,products,reinvest,retirada,perdas}=DB;
+  const now=new Date();
+
+  // Cálculos gerais
   const totV=sales.reduce((a,s)=>a+Number(s.total||0),0);
   const totL=sales.reduce((a,s)=>a+Number(s.lucro||0),0);
   const totR=reinvest.reduce((a,r)=>a+Number(r.val||0),0);
   const totRet=retirada.reduce((a,r)=>a+Number(r.val||0),0);
-  const caixa=totV-totR-totRet;
+  const totP=perdas.reduce((a,p)=>a+Number(p.val||0),0);
+  const caixa=totV-totR-totRet-totP;
   const totEst=products.reduce((a,p)=>a+ct(p)*Number(p.stock||0),0);
-  const now=new Date();
+  const totEstVenda=products.reduce((a,p)=>a+Number(p.price||0)*Number(p.stock||0),0);
+  const margemGeral=totV>0?((totL/totV)*100).toFixed(1):0;
+  const ticketMedio=sales.length>0?(totV/sales.length).toFixed(2):0;
+
+  // Este mês
   const mesSales=sales.filter(s=>{ if(!s.date)return false; const d=new Date(s.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
   const vMes=mesSales.reduce((a,s)=>a+Number(s.total||0),0);
   const lMes=mesSales.reduce((a,s)=>a+Number(s.lucro||0),0);
+  const qMes=mesSales.length;
+  const margemMes=vMes>0?((lMes/vMes)*100).toFixed(1):0;
 
-  document.getElementById('dash-metrics').innerHTML=
-    `<div class="met"><div class="met-lbl">Vendas este mês</div><div class="met-val c-acc">${R(vMes)}</div></div>
-     <div class="met"><div class="met-lbl">Lucro este mês</div><div class="met-val c-grn">${R(lMes)}</div></div>
-     <div class="met"><div class="met-lbl">Caixa Empresa</div><div class="met-val ${caixa>=0?'c-grn':'c-red'}">${R(caixa)}</div></div>
-     <div class="met"><div class="met-lbl">Valor Estoque</div><div class="met-val">${R(totEst)}</div></div>
-     <div class="met"><div class="met-lbl">Total Vendido</div><div class="met-val c-acc">${R(totV)}</div></div>
-     <div class="met"><div class="met-lbl">Qtd. Vendas</div><div class="met-val">${sales.length}</div></div>`;
+  // Mês passado
+  const mp=new Date(); mp.setMonth(mp.getMonth()-1);
+  const mpSales=sales.filter(s=>{ if(!s.date)return false; const d=new Date(s.date); return d.getMonth()===mp.getMonth()&&d.getFullYear()===mp.getFullYear(); });
+  const vMp=mpSales.reduce((a,s)=>a+Number(s.total||0),0);
+  const lMp=mpSales.reduce((a,s)=>a+Number(s.lucro||0),0);
+  const crescV=vMp>0?(((vMes-vMp)/vMp)*100).toFixed(1):null;
+
+  // Hoje
+  const hojeSales=sales.filter(s=>{ if(!s.date)return false; return new Date(s.date).toDateString()===now.toDateString(); });
+  const vHoje=hojeSales.reduce((a,s)=>a+Number(s.total||0),0);
+  const lHoje=hojeSales.reduce((a,s)=>a+Number(s.lucro||0),0);
+
+  // Produtos
+  const semEstoque=products.filter(p=>(p.stock||0)===0).length;
+  const estoqueAlerta=products.filter(p=>(p.stock||0)>0&&(p.stock||0)<=(p.alert||2)).length;
+  const totalProd=products.length;
+
+  // ROI simples
+  const roi=totR>0?(((totL-totR)/totR)*100).toFixed(1):null;
+
+  document.getElementById('dash-metrics').innerHTML=`
+    <div class="met"><div class="met-lbl">Vendas Hoje</div><div class="met-val c-acc">${R(vHoje)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">${hojeSales.length} venda(s)</div></div>
+    <div class="met"><div class="met-lbl">Lucro Hoje</div><div class="met-val c-grn">${R(lHoje)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">margem ${vHoje>0?((lHoje/vHoje)*100).toFixed(1):0}%</div></div>
+    <div class="met"><div class="met-lbl">Vendas Este Mês</div><div class="met-val c-acc">${R(vMes)}</div><div style="font-size:11px;margin-top:3px;color:${crescV===null?'var(--txt3)':Number(crescV)>=0?'var(--grn)':'var(--red)'}">${crescV!==null?(Number(crescV)>=0?'▲':'▼')+Math.abs(crescV)+'% vs mês ant.':'—'}</div></div>
+    <div class="met"><div class="met-lbl">Lucro Este Mês</div><div class="met-val c-grn">${R(lMes)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">margem ${margemMes}%</div></div>
+    <div class="met"><div class="met-lbl">Caixa Empresa</div><div class="met-val ${caixa>=0?'c-grn':'c-red'}">${R(caixa)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">vendas − gastos</div></div>
+    <div class="met"><div class="met-lbl">Ticket Médio</div><div class="met-val">${R(ticketMedio)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">${sales.length} vendas total</div></div>
+    <div class="met"><div class="met-lbl">Margem Geral</div><div class="met-val ${margemGeral>30?'c-grn':margemGeral>15?'c-yel':'c-red'}">${margemGeral}%</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">lucro/faturamento</div></div>
+    <div class="met"><div class="met-lbl">Valor Estoque</div><div class="met-val">${R(totEst)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">venda: ${R(totEstVenda)}</div></div>
+    <div class="met"><div class="met-lbl">Total Faturado</div><div class="met-val c-acc">${R(totV)}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">lucro: ${R(totL)}</div></div>
+    <div class="met"><div class="met-lbl">Reinvestido</div><div class="met-val c-pur">${R(totR)}</div><div style="font-size:11px;color:${roi!==null?(Number(roi)>=0?'var(--grn)':'var(--red)'):'var(--txt3)'};margin-top:3px">${roi!==null?'ROI '+roi+'%':'—'}</div></div>
+    <div class="met"><div class="met-lbl">Produtos</div><div class="met-val">${totalProd}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">${semEstoque} sem estoque</div></div>
+    <div class="met"><div class="met-lbl">Alerta Estoque</div><div class="met-val ${estoqueAlerta>0?'c-yel':''}">${estoqueAlerta}</div><div style="font-size:11px;color:var(--txt3);margin-top:3px">abaixo do mínimo</div></div>
+  `;
 
   drawBarChart('chart-sales', 30, 'Vendas (R$)', sales, s=>Number(s.total||0), '#2e6fff');
   drawBarChart('chart-lucro', 30, 'Lucro (R$)',  sales, s=>Number(s.lucro||0), '#2ecc71');
@@ -2370,13 +2408,16 @@ function renderEntradas(){
     const itens=e.itens||[];
     return`<div class="list-item">
       <div class="li-top">
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="li-name">${itens.length?itens.map(i=>`${i.prodNome} ×${i.qty}`).join(', ').substring(0,60)+(itens.map(i=>`${i.prodNome} ×${i.qty}`).join(', ').length>60?'…':''):'—'}</div>
           <div class="li-meta">${itens.length} produto(s)${e.forn?' · '+e.forn:''}${e.obs?' · '+e.obs:''}</div>
         </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div class="li-val" style="color:var(--grn)">${R(e.total||0)}</div>
-          <div class="li-meta">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <div style="text-align:right">
+            <div class="li-val" style="color:var(--grn)">${R(e.total||0)}</div>
+            <div class="li-meta">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+          <button onclick="abrirEditarEntrada('${e.id}')" style="background:var(--surf2);border:1px solid var(--brd2);color:var(--txt2);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;transition:.15s" onmouseover="this.style.borderColor='var(--acc)';this.style.color='var(--acc)'" onmouseout="this.style.borderColor='var(--brd2)';this.style.color='var(--txt2)'">✏ Editar</button>
         </div>
       </div>
     </div>`;
@@ -2456,8 +2497,95 @@ function renderNovoProduto(){
   `).join('');
 }
 
-// ════════════════════════════════════════════════════════════
-// SAÍDAS DE MERCADORIA
+// ── EDITAR ENTRADA ──
+let _editEntradaId=null;
+let _editEntradaItens=[];
+
+function abrirEditarEntrada(id){
+  const lista=getEntradas();
+  const entrada=lista.find(e=>e.id===id);
+  if(!entrada)return;
+  _editEntradaId=id;
+  _editEntradaItens=(entrada.itens||[]).map(i=>({...i}));
+  document.getElementById('eedit-forn').value=entrada.forn||'';
+  document.getElementById('eedit-obs').value=entrada.obs||'';
+  renderEditEntradaItens();
+  openM('m-edit-entrada');
+}
+
+function renderEditEntradaItens(){
+  const el=document.getElementById('eedit-items');
+  if(!_editEntradaItens.length){el.innerHTML='<div class="empty">Nenhum item</div>';return;}
+  el.innerHTML=_editEntradaItens.map((item,idx)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--brd)">
+      <div style="flex:1;font-size:13px;font-weight:600">${item.prodNome}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="eeditQty(${idx},-1)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--brd2);background:var(--surf2);color:var(--txt);cursor:pointer;font-size:15px;font-weight:700">−</button>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;min-width:28px;text-align:center">${item.qty}</span>
+        <button onclick="eeditQty(${idx},1)" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--brd2);background:var(--surf2);color:var(--txt);cursor:pointer;font-size:15px;font-weight:700">+</button>
+      </div>
+      <input type="number" value="${item.custo||0}" min="0" step="0.01" onchange="_editEntradaItens[${idx}].custo=parseFloat(this.value)||0" style="width:80px;background:var(--surf2);border:1px solid var(--brd2);border-radius:6px;color:var(--txt);padding:5px 8px;font-size:13px;outline:none;-webkit-text-fill-color:var(--txt)">
+      <button onclick="eeditRemove(${idx})" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:16px;padding:2px 4px">✕</button>
+    </div>
+  `).join('');
+}
+
+function eeditQty(idx,delta){
+  _editEntradaItens[idx].qty=Math.max(1,(_editEntradaItens[idx].qty||1)+delta);
+  renderEditEntradaItens();
+}
+function eeditRemove(idx){
+  _editEntradaItens.splice(idx,1);
+  renderEditEntradaItens();
+}
+
+async function salvarEditEntrada(){
+  if(!_editEntradaId)return;
+  const lista=getEntradas();
+  const idx=lista.findIndex(e=>e.id===_editEntradaId);
+  if(idx===-1)return;
+  const antiga=lista[idx];
+  const novaForn=document.getElementById('eedit-forn').value.trim();
+  const novaObs=document.getElementById('eedit-obs').value.trim();
+  const novoTotal=_editEntradaItens.reduce((s,i)=>s+(i.qty*(i.custo||0)),0);
+
+  // Reverter estoque antigo e aplicar novo
+  try{
+    for(const oldItem of (antiga.itens||[])){
+      const prod=DB.products.find(p=>p.id===oldItem.prodId);
+      if(prod) await sbUpdate('products',prod.id,{stock:Math.max(0,(prod.stock||0)-oldItem.qty)});
+    }
+    for(const newItem of _editEntradaItens){
+      const prod=DB.products.find(p=>p.id===newItem.prodId);
+      if(prod) await sbUpdate('products',prod.id,{stock:(prod.stock||0)+newItem.qty});
+    }
+    lista[idx]={...antiga,itens:_editEntradaItens,forn:novaForn,obs:novaObs,total:novoTotal};
+    localStorage.setItem(ENT_KEY,JSON.stringify(lista));
+    await syncAll();
+    closeM('m-edit-entrada');
+    toast('Entrada atualizada ✓');
+    renderEntradas();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function excluirEntrada(){
+  if(!_editEntradaId||!confirm('Excluir esta entrada? O estoque será revertido.'))return;
+  const lista=getEntradas();
+  const entrada=lista.find(e=>e.id===_editEntradaId);
+  if(!entrada)return;
+  try{
+    for(const item of (entrada.itens||[])){
+      const prod=DB.products.find(p=>p.id===item.prodId);
+      if(prod) await sbUpdate('products',prod.id,{stock:Math.max(0,(prod.stock||0)-item.qty)});
+    }
+    const novaLista=lista.filter(e=>e.id!==_editEntradaId);
+    localStorage.setItem(ENT_KEY,JSON.stringify(novaLista));
+    await syncAll();
+    closeM('m-edit-entrada');
+    toast('Entrada excluída');
+    renderEntradas();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
 // ════════════════════════════════════════════════════════════
 const SAI_KEY='gilcar_saidas';
 let SAI_PERIOD='todas';
@@ -2527,6 +2655,36 @@ window.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('pwa-manifest').href = url;
 })();
 </script>
+<!-- MODAL: EDITAR ENTRADA -->
+<div class="modal-ov" id="m-edit-entrada">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-hd">
+      <span class="modal-title">Editar Entrada</span>
+      <button class="modal-x" onclick="closeM('m-edit-entrada')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:12px;padding:8px 12px;background:var(--surf2);border-radius:8px;border:1px solid var(--brd)">
+        ℹ Edite os itens abaixo. O estoque será recalculado automaticamente.
+      </div>
+      <div id="eedit-items"></div>
+      <div class="row" style="margin-top:12px">
+        <div class="field" style="margin-bottom:0">
+          <label>Fornecedor</label>
+          <input type="text" id="eedit-forn" placeholder="Fornecedor">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Obs / NF</label>
+          <input type="text" id="eedit-obs" placeholder="NF 12345…">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="display:flex;gap:8px">
+      <button class="btn btn-red" onclick="excluirEntrada()" style="width:auto;padding:10px 16px">Excluir</button>
+      <button class="btn btn-pri" onclick="salvarEditEntrada()" style="flex:1">Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: NOVO PRODUTO -->
 <div class="modal-ov" id="m-novo-produto">
   <div class="modal" style="max-width:480px">
